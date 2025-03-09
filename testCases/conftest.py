@@ -1,13 +1,11 @@
 import os
 from datetime import datetime
-
 import pytest
 from selenium import webdriver
-from selenium.webdriver.edge import service
-
 
 @pytest.fixture
-def setup(browser):
+def setup(request):
+    browser = request.config.getoption("--browser")
     if browser == "edge":
         options = webdriver.EdgeOptions()
         options.add_experimental_option("detach", True)
@@ -16,41 +14,24 @@ def setup(browser):
     elif browser == "firefox":
         options = webdriver.FirefoxOptions()
         driver = webdriver.Firefox(options=options)
-
+        print("Launching Firefox")
     else:
         options = webdriver.ChromeOptions()
         options.add_experimental_option("detach", True)
         driver = webdriver.Chrome(options=options)
-    return driver
+        print("Launching Chrome")
 
+    request.cls.driver = driver  # Attach the driver to the test class
+    yield
+    driver.quit()
 
 def pytest_addoption(parser):
-    parser.addoption("--browser")
+    parser.addoption("--browser", action="store", default="chrome", help="Browser to run tests on")
 
-
-@pytest.fixture()
-def browser(request):
-    return request.config.getoption("--browser")
-
-
-########### pytest HTML Report ################
-
-
-# It is hook for Adding Environment info to HTML Report
-def pytest_configure(config):
-    config._metadata['Project Name'] = 'automationpractice.pl'
-    config._metadata['Module Name'] = 'Women shop'
-    config._metadata['Tester'] = 'Surya'
-
-
-# It is hook for delete/Modify Environment info to HTML Report
-@pytest.mark.optionalhook
-def pytest_metadata(metadata):
-    metadata.pop("JAVA_HOME", None)
-    metadata.pop("Plugins", None)
-
-
-#Specifying report folder location and save report with timestamp
+# Specifying report folder location and save report with timestamp
 @pytest.hookimpl(tryfirst=True)
 def pytest_configure(config):
-    config.option.htmlpath = os.path.abspath(os.curdir)+"\\reports\\"+datetime.now().strftime("%d-%m-%Y %H-%M-%S")+".html"
+    report_dir = os.path.join(os.getcwd(), "reports")
+    os.makedirs(report_dir, exist_ok=True)  # Create the directory if it doesn't exist
+    timestamp = datetime.now().strftime("%d-%m-%Y_%H-%M-%S")
+    config.option.htmlpath = os.path.join(report_dir, f"Test_Report_{timestamp}.html")
